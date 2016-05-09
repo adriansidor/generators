@@ -1,33 +1,15 @@
 package generators;
 
-import ilog.concert.IloException;
-import ilog.concert.IloLinearNumExpr;
-import ilog.concert.IloNumVar;
-import ilog.concert.IloNumVarType;
-import ilog.cplex.IloCplex;
+import ilog.concert.*; 
+import ilog.cplex.*;
 import ilog.cplex.IloCplex.CplexStatus;
 
-public class Main {
+public class Main2 {
 
 	public static void main(String[] args) {
-		try {
+	       try {
 	    	   IloCplex cplex = new IloCplex();
-	    	   
-	    	   //dostepne generatory
-	    	   int[] dg = {16, 14, 12};
-	    	   //liczba typów generatorow
-	    	   int T = 3;
-	    	   //liczba por dnia
-	    	   int d = 5;
-	    	   //Wektory reprezentujace generatory pradu typu T pracujace o porze d (GdT)
-	    	   IloNumVar[][][] GdT = new IloNumVar[d][T][];
-	    	   for(int i = 0; i<d; i++) {
-	    		   for(int j = 0; j<T; j++) {
-	    			   GdT[i][j] = cplex.boolVarArray(dg[T]);
-	    		   }
-	    	   }
-	    	   
-	    	   IloNumVar[] x = cplex.numVarArray(3, 0.0, 100.0, IloNumVarType.Int);
+	    	   IloNumVar[] x = cplex.numVarArray(3, 0.0, 100.0);
 	    	   IloNumVar[] y = cplex.numVarArray(3, 2.0, 15.0);
 	    	   IloLinearNumExpr lexpr = cplex.linearNumExpr();
 	    	   lexpr.addTerm(1.0, x[0]);
@@ -54,7 +36,6 @@ public class Main {
 	       } catch (IloException e) {
 	    	   System.err.println("Concert exception caught: " + e); 
 	       }
-
 
 	}
 
