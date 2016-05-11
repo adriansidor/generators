@@ -11,6 +11,7 @@ public class Main2 {
 	    	   IloCplex cplex = new IloCplex();
 	    	   IloNumVar[] x = cplex.numVarArray(3, 0.0, 100.0);
 	    	   IloNumVar[] y = cplex.numVarArray(3, 2.0, 15.0);
+	    	   System.out.println(x);
 	    	   IloLinearNumExpr lexpr = cplex.linearNumExpr();
 	    	   lexpr.addTerm(1.0, x[0]);
 	    	   lexpr.addTerm(2.0, x[1]);
