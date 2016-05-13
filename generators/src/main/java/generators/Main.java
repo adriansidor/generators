@@ -42,7 +42,7 @@ public class Main {
 	    	   IloNumVar[][][] O = new IloNumVar[d][T][];
 	    	   for(int i = 0; i<d; i++) {
 	    		   for(int j = 0; j<T; j++) {
-	    			   G[i][j] = cplex.numVarArray(dg[j], 0, Double.MAX_VALUE);
+	    			   O[i][j] = cplex.numVarArray(dg[j], 0, Double.MAX_VALUE);
 	    		   }
 	    	   }
 	    	   
@@ -144,23 +144,108 @@ public class Main {
 	    	   //IloLinearNumExpr main = cplex.linearNumExpr();
 	    	   cplex.addGe(cplex.sum(f[0],f[1],f[2]), 29);
 	    	   
+	    	   //poczatek przykladu
+	    	   IloNumVar[] xy = cplex.boolVarArray(5);
+	    	   //IloNumVar[] z = cplex.boolVarArray(4);
 	    	   
-	    	   cplex.addMinimize(cplex.sum(f[0],f[1],f[2]));
+	    	   IloNumVar[] z = cplex.numVarArray(4, 0, Double.MAX_VALUE);
+	    	   for(int i = 0; i<z.length; i++) {
+	    		   IloLinearNumExpr expr1 = cplex.linearNumExpr();
+		    	   expr1.addTerm(1.0, xy[i]);
+		    	   expr1.addTerm(-1.0, xy[i+1]);
+		    	   cplex.addLe(z[i], expr1);
+		    	   //cplex.addGe(z[i], expr1);
+		    	   IloLinearNumExpr e2 = cplex.linearNumExpr();
+		    	   e2.addTerm(-1.0, xy[i]);
+		    	   e2.addTerm(1.0, xy[i+1]);
+		    	   cplex.addLe(z[i], e2);
+		    	   //cplex.addGe(z[i],e2);
+	    	   }
+	    	  /* IloLinearNumExpr s = cplex.linearNumExpr();
+	    	   for(int i = 0; i<z.length; i++) {
+	    		   s.addTerm(0.5, z[0]);
+	    		   //IloLinearNumExpr ai = cplex.linearNumExpr();
+	    		   s.addTerm(-0.5, xy[i]);
+	    		   s.addTerm(0.5, xy[i+1]);
+	    	   }*/
+	    	   
+	    	   IloLinearNumExpr s = cplex.linearNumExpr();
+	    	   for(int i = 0; i<z.length; i++) {
+	    		   //s.addTerm(0.5, z[0]);
+	    		   IloLinearNumExpr ai = cplex.linearNumExpr();
+	    		   ai.addTerm(0.5, xy[i]);
+	    		   ai.addTerm(-0.5, xy[i+1]);
+	    		   //s.add((IloLinearNumExpr) cplex.abs(ai));
+	    		   s.addTerm(-0.5, xy[i]);
+	    		   s.addTerm(0.5, xy[i+1]);
+	    	   }
+
+	    	   //cplex.addEq(xy[0], 1);
+	    	   //cplex.addEq(xy[1], 1);
+	    	   cplex.addEq(xy[2], 0);
+	    	   cplex.addEq(xy[3], 1);
+	    	   //cplex.addEq(xy[4], 1);
+	    	   /*IloLinearNumExpr expr = cplex.linearNumExpr();
+	    	   expr.addTerm(1.0, xy[0]);
+	    	   expr.addTerm(-1.0, xy[1]);
+	    	   cplex.addLe(z[0], expr);*/
+	    	   //IloLinearNumExpr exp = cplex.linearNumExpr();
+	    	   IloNumVar h = cplex.numVar(-10, 2);
+	    	   IloNumVar g = cplex.numVar(5, 40);
+	    	   IloNumVar j = cplex.numVar(0, Double.MAX_VALUE);
+	    	   IloLinearNumExpr je1 = cplex.linearNumExpr();
+	    	   je1.addTerm(1.0, h);
+	    	   je1.addTerm(-1.0, g);
+	    	   cplex.addLe(j, je1);
+	    	   //cplex.addLe(je1, j);
+	    	   IloLinearNumExpr je2 = cplex.linearNumExpr();
+	    	   je2.addTerm(-1.0, h);
+	    	   je2.addTerm(1.0, g);
+	    	   cplex.addLe(j, cplex.negative(je1));
+	    	   cplex.addGe(j, 0);
+	    	   IloNumVar hminus = cplex.numVar(0, Double.MAX_VALUE);
+	    	   IloNumVar hplus = cplex.numVar(0, Double.MAX_VALUE);
+	    	   IloLinearNumExpr su = cplex.linearNumExpr();
+	    	   su.addTerm(1.0, hplus);
+	    	   su.addTerm(-1, hminus);
+	    	   cplex.addEq(h, su);
+	    	   IloLinearNumExpr pw = cplex.linearNumExpr();
+	    	   pw.addTerm(3, h);
+	    	   pw.addTerm(1, g);
+	    	   //cplex.addLe(cplex.negative(je1), j);
+	    	   //cplex.addRange(je1, j, je1);
+	    	   System.out.println("j: " + j);
+	    	   System.out.println(cplex);
+	    	   cplex.addMaximize(pw);
+	    	   //koniec przykladu
 	    	   
 	    	   //cplex.addLe(cplex.sum(cplex.negative(x[0]),x[1],x[2]),20.0);
 	    	   cplex.solve();
 	    	   CplexStatus status = cplex.getCplexStatus();
+	    	   System.out.println(cplex.getValue(pw));
 	    	   //double objval = cplex.getObjValue();
 	    	   //System.out.println(objval);
 	    	   //System.out.println(status.toString());
-	    	   double[]	xval = cplex.getValues(f);
+	    	   //System.out.println(s);
+	    	   //double v = cplex.getValue(s);
+	    	   //System.out.println("value: " + v);
+	    	   /*double[]	xval = cplex.getValues(xy);
+	    	   for(double xv : xval) {
+	    		   System.out.println(xv);
+	    	   }*/
+	    	   /*System.out.println("z");
+	    	   double[] yval = cplex.getValues(z);
+	    	   for(double xv : yval) {
+	    		   System.out.println(xv);
+	    	   }*/
+	    	   /*double[]	xval = cplex.getValues(f);
 	    	   for(double xv : xval) {
 	    		   System.out.println(xv);
 	    	   }
 	    	   double[] yval = cplex.getValues(u);
 	    	   for(double xv : yval) {
 	    		   System.out.println(xv);
-	    	   }
+	    	   }*/
 	       } catch (IloException e) {
 	    	   System.err.println("Concert exception caught: " + e); 
 	       }
