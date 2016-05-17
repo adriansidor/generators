@@ -2,6 +2,7 @@ package generators;
 
 import ilog.concert.IloException;
 import ilog.concert.IloLinearNumExpr;
+import ilog.concert.IloNumExpr;
 import ilog.concert.IloNumVar;
 import ilog.concert.IloNumVarType;
 import ilog.cplex.IloCplex;
@@ -105,8 +106,116 @@ public class Main {
 	    		   }
 	    		   cplex.addEq(w, 0);
 	    	   }
+
+	    	   //total k (koszt calkowity)
+	    	   IloNumExpr tk = cplex.numExpr();
 	    	   
-	    	   IloNumVar[] x = cplex.numVarArray(3, 0.0, 100.0, IloNumVarType.Int);
+	    	   //koszt uruchomienia generatorow
+	    	   for(int j = 0; j<T; j++) {
+	    		   for(int x =0; x<dg[j]; x++) {
+	    			   //first kost (pierwszy koszt)
+	    			   IloLinearNumExpr fk = cplex.linearNumExpr();
+	    			   fk.addTerm(ku[j], G[0][j][x]);
+	    			   tk = cplex.sum(tk, fk);
+	    			   for(int i = 0; i<d-1; i++) {
+	    				   //reszta kosztu
+	    				   IloLinearNumExpr rk = cplex.linearNumExpr();
+	    				   rk.addTerm(0.5, G[i][j][x]);
+	    				   rk.addTerm(-0.5, G[i+1][j][x]);
+	    				   tk = cplex.sum(tk, cplex.abs(rk));
+	    				   tk = cplex.sum(tk, cplex.negative(rk));
+	    			   }
+	    		   }
+	    	   }
+	    	   
+	    	   //koszt pracy generatorow przy minimalnym obciazeniu
+	    	   for(int i = 0; i<d; i++) {
+	    		   for(int j = 0; j<T; j++) {
+	    			   for(int x = 0; x<dg[j]; x++) {
+	    				   IloLinearNumExpr kpm = cplex.linearNumExpr();
+	    				   kpm.addTerm(6*km[j], G[i][j][x]);
+	    				   tk = cplex.sum(tk, kpm);
+	    			   }
+	    		   }
+	    	   }
+	    	   
+	    	   //liczba scenariuszy
+	    	   //model uproszczony - 1 scenariusz dla kazdego typu generatora
+	    	   int s = 1;
+	    	   //wektor kosztu dla roznych typow generatorow dla roznych scenariuszy
+	    	   double[][] R = new double[T][s];
+	    	   //na razie model uproszczony
+	    	   //TODO: TU TRZEBA WYGENEROWAC SCENARIUSZE
+	    	   R[0][0] = 2.5;
+	    	   R[1][0] = 1.5;
+	    	   R[2][0] = 3.5;
+	    	   //wektor prawdopodobienstwa dla roznych typow generatorow
+	    	   //dla roznych scenariuszy
+	    	   double[][] p = new double[T][s];
+	    	   //na razie model uproszczony
+	    	   //TODO: TU TRZEBA WYGENEROWAC SCENARIUSZE
+	    	   p[0][0] = 1;
+	    	   p[1][0] = 1;
+	    	   p[2][0] = 1;
+	    	   
+	    	   //koszt sredni godziny pracy/MW generatora powyzej minimalnego
+			   //obciazenia
+	    	   double[] ksp = new double[T];
+	    	   for(int j = 0; j<T; j++) {
+	    		   for(int r = 0; r<s; r++) {
+	    			   ksp[j] += p[j][r]*R[j][r];
+	    		   }
+	    		   System.out.println("ksp[" + j + "]=" + ksp[j]);
+	    	   }
+	    	   
+	    	   //koszt pracy generatorow powyzej minimalnego obciazenia
+	    	   for(int i = 0; i<d; i++) {
+	    		   for(int j = 0; j<T; j++) {
+	    			   for(int x = 0; x<dg[j]; x++) {
+	    				   IloLinearNumExpr r = cplex.linearNumExpr();
+	    				   r.addTerm(6*ksp[j], O[i][j][x]);
+	    				   r.addTerm(-6*omin[j], G[i][j][x]);
+	    				   tk = cplex.sum(tk, r);
+	    			   }
+	    		   }
+	    	   }
+	    	   
+	    	   cplex.addMinimize(tk);
+	    	   cplex.solve();
+	    	   //CplexStatus status = cplex.getCplexStatus();
+	    	   
+	    	   System.out.println(cplex.getValue(tk));
+	    	   
+	    	   for(int i = 0; i<d; i++) {
+	    		   System.out.println("Dla pory " + i);
+	    		   //generowany prad przez generatory
+    			   double gp = 0;
+	    		   for(int j = 0; j<T; j++) {
+	    			   System.out.println("Generator typu " + j);
+	    			   double[]	g = cplex.getValues(G[i][j]);
+	    			   double[]	o = cplex.getValues(O[i][j]);
+	    			   for(int x = 0; x<dg[j]; x++) {
+	    				   StringBuilder sb = new StringBuilder();
+	    				   sb.append("G[").append(i).append("]");
+	    				   sb.append("[").append(j).append("]");
+	    				   sb.append("[").append(x).append("]");
+	    				   sb.append("=").append(g[x]).append(";");
+	    				   sb.append(o[x]);
+	    				   System.out.println(sb.toString());
+	    				   
+	    				   gp = gp + o[x];
+	    			   }
+	    		   }
+	    		   System.out.println("Generowany prad przez generatory = " + gp);
+	    	   }
+	    	   
+	    	   /*double[]	xval = cplex.getValues(xy);
+	    	   for(double xv : xval) {
+	    		   System.out.println(xv);
+	    	   }*/
+	    	   
+	    	   
+	    	  /* IloNumVar[] x = cplex.numVarArray(3, 0.0, 100.0, IloNumVarType.Int);
 	    	   IloNumVar[] y = cplex.numVarArray(3, 2.0, 15.0);
 	    	   IloLinearNumExpr lexpr = cplex.linearNumExpr();
 	    	   lexpr.addTerm(1.0, x[0]);
@@ -139,16 +248,16 @@ public class Main {
 	    	   cplex.addGe(f[2], expr3);
 	    	   IloLinearNumExpr bexpr3 = cplex.linearNumExpr();
 	    	   bexpr3.addTerm(b, u[2]);
-	    	   cplex.addLe(f[2], bexpr3);
+	    	   cplex.addLe(f[2], bexpr3);*/
 	    	   
 	    	   //IloLinearNumExpr main = cplex.linearNumExpr();
-	    	   cplex.addGe(cplex.sum(f[0],f[1],f[2]), 29);
+	    	   //cplex.addGe(cplex.sum(f[0],f[1],f[2]), 29);
 	    	   
 	    	   //poczatek przykladu
-	    	   IloNumVar[] xy = cplex.boolVarArray(5);
+	    	   //IloNumVar[] xy = cplex.boolVarArray(5);
 	    	   //IloNumVar[] z = cplex.boolVarArray(4);
 	    	   
-	    	   IloNumVar[] z = cplex.numVarArray(4, 0, Double.MAX_VALUE);
+	    	   /*IloNumVar[] z = cplex.numVarArray(4, 0, Double.MAX_VALUE);
 	    	   for(int i = 0; i<z.length; i++) {
 	    		   IloLinearNumExpr expr1 = cplex.linearNumExpr();
 		    	   expr1.addTerm(1.0, xy[i]);
@@ -160,7 +269,7 @@ public class Main {
 		    	   e2.addTerm(1.0, xy[i+1]);
 		    	   cplex.addLe(z[i], e2);
 		    	   //cplex.addGe(z[i],e2);
-	    	   }
+	    	   }*/
 	    	  /* IloLinearNumExpr s = cplex.linearNumExpr();
 	    	   for(int i = 0; i<z.length; i++) {
 	    		   s.addTerm(0.5, z[0]);
@@ -169,7 +278,7 @@ public class Main {
 	    		   s.addTerm(0.5, xy[i+1]);
 	    	   }*/
 	    	   
-	    	   IloLinearNumExpr s = cplex.linearNumExpr();
+	    	   /*IloLinearNumExpr s = cplex.linearNumExpr();
 	    	   for(int i = 0; i<z.length; i++) {
 	    		   //s.addTerm(0.5, z[0]);
 	    		   IloLinearNumExpr ai = cplex.linearNumExpr();
@@ -178,19 +287,19 @@ public class Main {
 	    		   //s.add((IloLinearNumExpr) cplex.abs(ai));
 	    		   s.addTerm(-0.5, xy[i]);
 	    		   s.addTerm(0.5, xy[i+1]);
-	    	   }
+	    	   }*/
 
 	    	   //cplex.addEq(xy[0], 1);
 	    	   //cplex.addEq(xy[1], 1);
-	    	   cplex.addEq(xy[2], 0);
-	    	   cplex.addEq(xy[3], 1);
+	    	   //cplex.addEq(xy[2], 0);
+	    	   //cplex.addEq(xy[3], 1);
 	    	   //cplex.addEq(xy[4], 1);
 	    	   /*IloLinearNumExpr expr = cplex.linearNumExpr();
 	    	   expr.addTerm(1.0, xy[0]);
 	    	   expr.addTerm(-1.0, xy[1]);
 	    	   cplex.addLe(z[0], expr);*/
 	    	   //IloLinearNumExpr exp = cplex.linearNumExpr();
-	    	   IloNumVar h = cplex.numVar(-10, 2);
+	    	   /*IloNumVar h = cplex.numVar(-10, 2);
 	    	   IloNumVar g = cplex.numVar(5, 40);
 	    	   IloNumVar j = cplex.numVar(0, Double.MAX_VALUE);
 	    	   IloLinearNumExpr je1 = cplex.linearNumExpr();
@@ -214,15 +323,15 @@ public class Main {
 	    	   pw.addTerm(1, g);
 	    	   //cplex.addLe(cplex.negative(je1), j);
 	    	   //cplex.addRange(je1, j, je1);
-	    	   System.out.println("j: " + j);
-	    	   System.out.println(cplex);
-	    	   cplex.addMaximize(pw);
+	    	   System.out.println("j: " + j);*/
+	    	   //System.out.println(cplex);
+	    	   //cplex.addMaximize(pw);
 	    	   //koniec przykladu
 	    	   
 	    	   //cplex.addLe(cplex.sum(cplex.negative(x[0]),x[1],x[2]),20.0);
-	    	   cplex.solve();
-	    	   CplexStatus status = cplex.getCplexStatus();
-	    	   System.out.println(cplex.getValue(pw));
+	    	   //cplex.solve();
+	    	   //CplexStatus status = cplex.getCplexStatus();
+	    	   //System.out.println(cplex.getValue(pw));
 	    	   //double objval = cplex.getObjValue();
 	    	   //System.out.println(objval);
 	    	   //System.out.println(status.toString());
