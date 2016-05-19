@@ -50,6 +50,7 @@ public class Main2 {
 	    	   cplex.addEq(1, xy[3]);
 	    	   cplex.addEq(1, xy[4]);
 	    	   
+	    	   //total = cplex.prod(0.2, total);
 	    	   cplex.addMaximize(total);
 	    	   
 	    	   

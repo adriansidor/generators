@@ -108,7 +108,13 @@ public class Main {
 	    	   }
 
 	    	   //total k (koszt calkowity)
+	    	   //TODO: to jest definicja kosztu a dokladniej wartosc oczekiwana
+	    	   //i tak to zmienic
+	    	   //definicja kosztu
 	    	   IloNumExpr tk = cplex.numExpr();
+	    	   
+	    	   //definicja ryzyka
+	    	   IloNumExpr dr = cplex.numExpr();
 	    	   
 	    	   //koszt uruchomienia generatorow
 	    	   for(int j = 0; j<T; j++) {
@@ -117,6 +123,7 @@ public class Main {
 	    			   IloLinearNumExpr fk = cplex.linearNumExpr();
 	    			   fk.addTerm(ku[j], G[0][j][x]);
 	    			   tk = cplex.sum(tk, fk);
+	    			   dr = cplex.sum(dr, fk);
 	    			   for(int i = 0; i<d-1; i++) {
 	    				   //reszta kosztu
 	    				   IloLinearNumExpr rk = cplex.linearNumExpr();
@@ -124,6 +131,8 @@ public class Main {
 	    				   rk.addTerm(-0.5, G[i+1][j][x]);
 	    				   tk = cplex.sum(tk, cplex.abs(rk));
 	    				   tk = cplex.sum(tk, cplex.negative(rk));
+	    				   dr = cplex.sum(dr, cplex.abs(rk));
+	    				   dr = cplex.sum(dr, cplex.negative(rk));
 	    			   }
 	    		   }
 	    	   }
@@ -135,6 +144,7 @@ public class Main {
 	    				   IloLinearNumExpr kpm = cplex.linearNumExpr();
 	    				   kpm.addTerm(6*km[j], G[i][j][x]);
 	    				   tk = cplex.sum(tk, kpm);
+	    				   dr = cplex.sum(dr, kpm);
 	    			   }
 	    		   }
 	    	   }
@@ -151,19 +161,20 @@ public class Main {
 	    	   R[2][0] = 3.5;
 	    	   //wektor prawdopodobienstwa dla roznych typow generatorow
 	    	   //dla roznych scenariuszy
-	    	   double[][] p = new double[T][s];
+	    	   double[] p = new double[s];
 	    	   //na razie model uproszczony
 	    	   //TODO: TU TRZEBA WYGENEROWAC SCENARIUSZE
-	    	   p[0][0] = 1;
-	    	   p[1][0] = 1;
-	    	   p[2][0] = 1;
+	    	   //TODO: p powinno byc raczej tablica jednowymiarowa bo
+	    	   //prawdopodobienstwo dla wszystkich R przy danym scenariuszu jest jednakowe
+	    	   p[0] = 1;
+
 	    	   
 	    	   //koszt sredni godziny pracy/MW generatora powyzej minimalnego
 			   //obciazenia
 	    	   double[] ksp = new double[T];
 	    	   for(int j = 0; j<T; j++) {
 	    		   for(int r = 0; r<s; r++) {
-	    			   ksp[j] += p[j][r]*R[j][r];
+	    			   ksp[j] += p[r]*R[j][r];
 	    		   }
 	    		   System.out.println("ksp[" + j + "]=" + ksp[j]);
 	    	   }
@@ -180,11 +191,46 @@ public class Main {
 	    		   }
 	    	   }
 	    	   
-	    	   cplex.addMinimize(tk);
+	    	   //koszt dla roznicy gini
+	    	   for(int i = 0; i<s; i++) {
+	    		   for(int j = 0; j<s; j++) {
+	    			   IloLinearNumExpr ls = cplex.linearNumExpr();
+	    			   IloLinearNumExpr rs = cplex.linearNumExpr();
+	    			   for(int a = 0; a<d; a++) {
+	    				   for(int b = 0; b<T; b++) {
+	    					   for(int x = 0; x<dg[b]; x++) {
+	    						   ls.addTerm(0.5*6*R[b][i], O[a][b][x]);
+	    						   ls.addTerm(-0.5*6*omin[b], G[a][b][x]);
+	    						   rs.addTerm(0.5*6*R[b][j], O[a][b][x]);
+	    						   rs.addTerm(-0.5*6*omin[b], G[a][b][x]);
+	    					   }
+	    				   }
+	    			   }
+	    			   IloNumExpr diff = cplex.numExpr();
+	    			   diff = cplex.sum(ls, cplex.negative(rs));
+	    			   IloNumExpr abs = cplex.linearNumExpr();
+	    			   abs = cplex.abs(diff);
+	    			   dr = cplex.sum(dr, cplex.prod(p[i]*p[j], abs));
+	    		   }
+	    	   }
+	    	   
+	    	   //FUNKCJA CELU
+	    	   //double lambda = 0.22;
+	    	   //IloNumExpr fc = cplex.sum(tk, cplex.prod(-1*lambda, dr));
+	    	   
+	    	   //cplex.addMinimize(tk);
+	    	   //cplex.addMaximize(tk);
+	    	   //cplex.addLe(tk, 1880528.0);
+	    	   cplex.addLe(tk, 6806000.0);
+	    	   //cplex.addEq(tk, 6806000.0);
+	    	   cplex.addMinimize(dr);
+	    	   //cplex.addMaximize(dr);
+	    	   //cplex.addMinimize(fc);
 	    	   cplex.solve();
 	    	   //CplexStatus status = cplex.getCplexStatus();
 	    	   
-	    	   System.out.println(cplex.getValue(tk));
+	    	   System.out.println("Koszt sredni = " + cplex.getValue(tk));
+	    	   System.out.println("Ryzyko = " + cplex.getValue(dr));
 	    	   
 	    	   for(int i = 0; i<d; i++) {
 	    		   System.out.println("Dla pory " + i);
@@ -201,7 +247,7 @@ public class Main {
 	    				   sb.append("[").append(x).append("]");
 	    				   sb.append("=").append(g[x]).append(";");
 	    				   sb.append(o[x]);
-	    				   System.out.println(sb.toString());
+	    				   //System.out.println(sb.toString());
 	    				   
 	    				   gp = gp + o[x];
 	    			   }
