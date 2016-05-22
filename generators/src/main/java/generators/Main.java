@@ -4,9 +4,7 @@ import ilog.concert.IloException;
 import ilog.concert.IloLinearNumExpr;
 import ilog.concert.IloNumExpr;
 import ilog.concert.IloNumVar;
-import ilog.concert.IloNumVarType;
 import ilog.cplex.IloCplex;
-import ilog.cplex.IloCplex.CplexStatus;
 
 public class Main {
 
@@ -20,6 +18,8 @@ public class Main {
 	    	   int T = 3;
 	    	   //liczba por dnia
 	    	   int d = 5;
+	    	   //liczba godzin pracy
+	    	   double[] lgp = {6.0, 3.0, 6.0, 3.0, 6.0};
 	    	   //zapotrzebowanie na prad
 	    	   double[] zp = {15000.0, 35000.0, 20000.0, 45000.0, 20000.0};
 	    	   //obciazenie minimalne generatorów
@@ -27,9 +27,9 @@ public class Main {
 	    	   //obciazenie maksymalne generatorow
 	    	   double[] omax = {2000.0, 1800.0, 3000.0};
 	    	   //koszt uruchomienia generatora
-	    	   int[] ku = {2000, 1500, 1000};
+	    	   double[] ku = {2000.0, 1500.0, 1000.0};
 	    	   //koszt godziny pracy generatora przy minimalnym obciazeniu
-	    	   int[] km = {1000, 2500, 3200};
+	    	   double[] km = {1000.0, 2500.0, 3200.0};
 	    	   //Wektory reprezentujace generatory pradu typu T pracujace o porze d (GdT)
 	    	   //jako zmienna binarna, pomocnicza (flaga dodatniosci)
 	    	   IloNumVar[][][] G = new IloNumVar[d][T][];
@@ -117,18 +117,23 @@ public class Main {
 	    	   IloNumExpr dr = cplex.numExpr();
 	    	   
 	    	   //koszt uruchomienia generatorow
+	    	   IloNumExpr kug = cplex.numExpr();
 	    	   for(int j = 0; j<T; j++) {
 	    		   for(int x =0; x<dg[j]; x++) {
 	    			   //first kost (pierwszy koszt)
 	    			   IloLinearNumExpr fk = cplex.linearNumExpr();
 	    			   fk.addTerm(ku[j], G[0][j][x]);
+	    			   kug = cplex.sum(kug, fk);
 	    			   tk = cplex.sum(tk, fk);
 	    			   dr = cplex.sum(dr, fk);
 	    			   for(int i = 0; i<d-1; i++) {
 	    				   //reszta kosztu
 	    				   IloLinearNumExpr rk = cplex.linearNumExpr();
-	    				   rk.addTerm(0.5, G[i][j][x]);
-	    				   rk.addTerm(-0.5, G[i+1][j][x]);
+	    				   rk.addTerm(0.5*ku[j], G[i][j][x]);
+	    				   rk.addTerm(-0.5*ku[j], G[i+1][j][x]);
+	    				   //(|a|-a)/2*ku[j] ,gdzie a[i] = x[i]-x[i+1]
+	    				   kug = cplex.sum(kug, cplex.abs(rk));
+	    				   kug = cplex.sum(kug, cplex.negative(rk));
 	    				   tk = cplex.sum(tk, cplex.abs(rk));
 	    				   tk = cplex.sum(tk, cplex.negative(rk));
 	    				   dr = cplex.sum(dr, cplex.abs(rk));
@@ -138,11 +143,13 @@ public class Main {
 	    	   }
 	    	   
 	    	   //koszt pracy generatorow przy minimalnym obciazeniu
+	    	   IloNumExpr kmo = cplex.numExpr();
 	    	   for(int i = 0; i<d; i++) {
 	    		   for(int j = 0; j<T; j++) {
 	    			   for(int x = 0; x<dg[j]; x++) {
 	    				   IloLinearNumExpr kpm = cplex.linearNumExpr();
-	    				   kpm.addTerm(6*km[j], G[i][j][x]);
+	    				   kpm.addTerm(lgp[i]*km[j], G[i][j][x]);
+	    				   kmo = cplex.sum(kmo, kpm);
 	    				   tk = cplex.sum(tk, kpm);
 	    				   dr = cplex.sum(dr, kpm);
 	    			   }
@@ -151,14 +158,27 @@ public class Main {
 	    	   
 	    	   //liczba scenariuszy
 	    	   //model uproszczony - 1 scenariusz dla kazdego typu generatora
-	    	   int s = 1;
+	    	   //int s = 1;
+	    	   int s = 3;
 	    	   //wektor kosztu dla roznych typow generatorow dla roznych scenariuszy
-	    	   double[][] R = new double[T][s];
+	    	   double[][] R = new double[s][T];
 	    	   //na razie model uproszczony
 	    	   //TODO: TU TRZEBA WYGENEROWAC SCENARIUSZE
-	    	   R[0][0] = 2.5;
-	    	   R[1][0] = 1.5;
-	    	   R[2][0] = 3.5;
+/*	    	   R[0][0] = 2.5;
+	    	   R[0][1] = 1.5;
+	    	   R[0][2] = 3.5;*/
+	    	   R[0][0] = 2.253568633428458;
+	    	   R[0][1] = 1.0;
+	    	   R[0][2] = 5;
+	    	   R[1][0] = 3.5;
+	    	   R[1][1] = 1.5;
+	    	   R[1][2] = 3.5;
+	    	   R[2][0] = 1.5;
+	    	   R[2][1] = 2.5;
+	    	   R[2][2] = 2.3;
+	    	   //double[] means = {2.5, 1.5, 3.5};
+	    	   //double[][] covariances = { {
+	    	   //MultivariateNormalDistribution mnd = new MultivariateNormalDistribution(means, covariances);
 	    	   //wektor prawdopodobienstwa dla roznych typow generatorow
 	    	   //dla roznych scenariuszy
 	    	   double[] p = new double[s];
@@ -166,43 +186,90 @@ public class Main {
 	    	   //TODO: TU TRZEBA WYGENEROWAC SCENARIUSZE
 	    	   //TODO: p powinno byc raczej tablica jednowymiarowa bo
 	    	   //prawdopodobienstwo dla wszystkich R przy danym scenariuszu jest jednakowe
-	    	   p[0] = 1;
-
+/*	    	   p[0] = 6d/10d;
+	    	   p[1] = 3d/10d;
+	    	   p[2] = 1d/10d;*/
+	    	   p[0] = 1d/3d;
+	    	   p[1] = 1d/3d;
+	    	   p[2] = 1d/3d;
+	    	   //p[0] = 1d;
 	    	   
 	    	   //koszt sredni godziny pracy/MW generatora powyzej minimalnego
 			   //obciazenia
 	    	   double[] ksp = new double[T];
 	    	   for(int j = 0; j<T; j++) {
 	    		   for(int r = 0; r<s; r++) {
-	    			   ksp[j] += p[r]*R[j][r];
+	    			   ksp[j] += p[r]*R[r][j];
+	    			   //System.out.println(R[r][j]);
+	    			   //System.out.println(p[r]);
+	    			   //System.out.println("ksp[" + j + "]=" + ksp[j]);
 	    		   }
 	    		   System.out.println("ksp[" + j + "]=" + ksp[j]);
 	    	   }
 	    	   
 	    	   //koszt pracy generatorow powyzej minimalnego obciazenia
+	    	   IloNumExpr kpp = cplex.numExpr();
 	    	   for(int i = 0; i<d; i++) {
 	    		   for(int j = 0; j<T; j++) {
 	    			   for(int x = 0; x<dg[j]; x++) {
+	    				   //6*(og-omin)*ksp
 	    				   IloLinearNumExpr r = cplex.linearNumExpr();
-	    				   r.addTerm(6*ksp[j], O[i][j][x]);
-	    				   r.addTerm(-6*omin[j], G[i][j][x]);
+	    				   r.addTerm(lgp[i]*ksp[j], O[i][j][x]);
+	    				   r.addTerm(-1.0*lgp[i]*omin[j]*ksp[j], G[i][j][x]);
+	    				   kpp = cplex.sum(kpp, r);
 	    				   tk = cplex.sum(tk, r);
 	    			   }
 	    		   }
 	    	   }
 	    	   
-	    	   //koszt dla roznicy gini
+	    	   
+	    	   IloNumExpr all = cplex.numExpr();
+	    	   //IloLinearNumExpr[][] op = new IloLinearNumExpr[d][T];
 	    	   for(int i = 0; i<s; i++) {
+	    		   for(int j = 0; j<s; j++) {
+	    	    	   IloNumExpr ls = cplex.numExpr();
+	    			   //koszt uruchomienia generatorow
+	    			   ls = cplex.sum(ls, kug);
+	    			   //koszt pracy przy minimalnym obciazeniu
+	    			   ls = cplex.sum(ls, kmo);
+	    	    	   IloNumExpr rs = cplex.numExpr();
+	    			   rs = cplex.sum(rs, kug);
+	    			   rs = cplex.sum(rs, kmo);
+	    			   
+	    			   for(int a = 0; a<d; a++) {
+	    				   for(int b = 0; b<T; b++) {
+	    					   //obciazenie powyjej minimalnego
+	    	    			   //IloLinearNumExpr op = cplex.linearNumExpr();
+	    					   IloLinearNumExpr op = cplex.linearNumExpr();
+	    					   for(int x = 0; x<dg[b]; x++) {
+	    						   op.addTerm(lgp[a], O[a][b][x]);
+	    						   op.addTerm(-1.0*lgp[a]*omin[b], G[a][b][x]);
+	    					   }
+	    					   ls = cplex.sum(ls, cplex.prod(R[i][b], op));
+	    					   rs = cplex.sum(rs, cplex.prod(R[j][b], op));
+	    				   }
+	    			   }
+	    			   //abs = |ls - rs|
+	    			   IloNumExpr abs = cplex.abs(cplex.sum(ls, cplex.negative(rs)));
+	    			   all = cplex.sum(all, cplex.prod(p[i]*p[j], abs));
+	    		   }
+	    	   }
+	    	   IloNumExpr gini = cplex.prod(0.5, all);
+	    	   
+	    	   //koszt dla roznicy gini
+	    	   //wersja 1
+	    	   //IloNumExpr test = cplex.numExpr();
+/*	    	   for(int i = 0; i<s; i++) {
 	    		   for(int j = 0; j<s; j++) {
 	    			   IloLinearNumExpr ls = cplex.linearNumExpr();
 	    			   IloLinearNumExpr rs = cplex.linearNumExpr();
 	    			   for(int a = 0; a<d; a++) {
 	    				   for(int b = 0; b<T; b++) {
 	    					   for(int x = 0; x<dg[b]; x++) {
-	    						   ls.addTerm(0.5*6*R[b][i], O[a][b][x]);
-	    						   ls.addTerm(-0.5*6*omin[b], G[a][b][x]);
-	    						   rs.addTerm(0.5*6*R[b][j], O[a][b][x]);
-	    						   rs.addTerm(-0.5*6*omin[b], G[a][b][x]);
+	    						   ls.addTerm(0.5*lgp[a]*R[i][b], O[a][b][x]);
+	    						   ls.addTerm(-0.5*lgp[a]*omin[b]*R[i][b], G[a][b][x]);
+	    						   rs.addTerm(0.5*lgp[a]*R[j][b], O[a][b][x]);
+	    						   rs.addTerm(-0.5*lgp[a]*omin[b]*R[j][b], G[a][b][x]);
 	    					   }
 	    				   }
 	    			   }
@@ -211,28 +278,81 @@ public class Main {
 	    			   IloNumExpr abs = cplex.linearNumExpr();
 	    			   abs = cplex.abs(diff);
 	    			   dr = cplex.sum(dr, cplex.prod(p[i]*p[j], abs));
+	    			   //test = cplex.sum(test, cplex.prod(p[i]*p[j], abs));
 	    		   }
-	    	   }
+	    	   }*/
 	    	   
 	    	   //FUNKCJA CELU
-	    	   //double lambda = 0.22;
-	    	   //IloNumExpr fc = cplex.sum(tk, cplex.prod(-1*lambda, dr));
+	    	   //cplex.addMinimize(tk);
+	    	   //cplex.addMaximize(tk);
+	    	   //cplex.addMinimize(dr);
+	    	   IloNumExpr tk2 = cplex.sum(kug, kmo, kpp);
+	    	   //cplex.addMinimize(tk2);
+	    	   //cplex.addMaximize(tk2);
+	    	   cplex.addMinimize(gini);
 	    	   
 	    	   //cplex.addMinimize(tk);
 	    	   //cplex.addMaximize(tk);
-	    	   //cplex.addLe(tk, 1880528.0);
-	    	   cplex.addLe(tk, 6806000.0);
+	    	   cplex.addLe(tk2, 1253502.8549067428);
+	    	   //cplex.addLe(tk, 1557684.2372308203);
+	    	   //cplex.addLe(tk, 8152234.922395572);
 	    	   //cplex.addEq(tk, 6806000.0);
-	    	   cplex.addMinimize(dr);
+	    	   //cplex.addGe(tk, 1557684.2372308203);
+	    	   //cplex.addMinimize(dr);
 	    	   //cplex.addMaximize(dr);
 	    	   //cplex.addMinimize(fc);
 	    	   cplex.solve();
 	    	   //CplexStatus status = cplex.getCplexStatus();
 	    	   
-	    	   System.out.println("Koszt sredni = " + cplex.getValue(tk));
-	    	   System.out.println("Ryzyko = " + cplex.getValue(dr));
+	    	   System.out.println("Koszt sredni = " + cplex.getValue(tk2));
+	    	   //System.out.println("Ryzyko = " + cplex.getValue(dr));
+	    	   System.out.println("Gini = " + cplex.getValue(gini));
 	    	   
-	    	   for(int i = 0; i<d; i++) {
+	    	   double ku2 = 0;
+	    	   for(int j = 0; j<T; j++) {
+	    		   for(int x =0; x<dg[j]; x++) {
+	    			   //first kost (pierwszy koszt)
+	    			   ku2 += ku[j]*cplex.getValue(G[0][j][x]);
+	    			   for(int i = 0; i<d-1; i++) {
+	    				   //reszta kosztu
+	    				   double flag = 0.5*ku[j]*cplex.getValue(G[i][j][x]);
+	    				   flag += -0.5*ku[j]*cplex.getValue(G[i][j][x]);
+	    				   ku2 += Math.abs(flag) - flag;
+	    			   }
+	    		   }
+	    	   }
+	    	   System.out.println("ku2 = " + ku2);
+	    	   
+	    	   double gini2 = 0;
+	    	   for(int t = 0; t<s; t++) {
+	    		   for(int k = 0; k<s; k++) {
+	    			   double ls2 = 0;
+	    			   double rs2 = 0;
+	    	    	   for(int i = 0; i<d; i++) {
+	    	    		   for(int j = 0; j<T; j++) {
+	    	    			   double[] o = cplex.getValues(O[i][j]);
+	    	    			   double[] g = cplex.getValues(G[i][j]);
+	    	    			   double op2 = 0;
+	    	    			   double ap = 0;
+	    	    			   for(int a = 0; a<o.length; a++) {
+	    	    				   //koszt przy minimalnym obciazeniu
+	    	    				   ap += g[a]*lgp[i]*km[j];
+	    	    				   op2 += o[a]*lgp[i];
+	    	    				   op2 += omin[j]*g[a]*lgp[i];
+	    	    			   }
+	    	    			   ls2 += ap + op2*R[t][j];
+	    	    			   rs2 += ap + op2*R[k][j];
+	    	    		   }
+	    	    	   }
+	    	    	   ls2 += ku2;
+	    	    	   rs2 += ku2;
+	    	    	   gini2 += Math.abs(ls2-rs2)*p[t]*p[k];
+	    		   }
+	    	   }
+	    	   gini2 = gini2/2;
+	    	   System.out.println("gini2 = " + gini2);
+
+/*	    	   for(int i = 0; i<d; i++) {
 	    		   System.out.println("Dla pory " + i);
 	    		   //generowany prad przez generatory
     			   double gp = 0;
@@ -253,7 +373,7 @@ public class Main {
 	    			   }
 	    		   }
 	    		   System.out.println("Generowany prad przez generatory = " + gp);
-	    	   }
+	    	   }*/
 	    	   
 	    	   /*double[]	xval = cplex.getValues(xy);
 	    	   for(double xv : xval) {
