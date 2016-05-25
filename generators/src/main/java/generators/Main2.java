@@ -15,7 +15,7 @@ public class Main2 {
 		double[] means = {2.5, 1.5, 3.5};
 		double[][] covariances = { {1.0, -2.0, -1.0}, {-2.0, 25.0, -8.0}, {-1.0, -8.0, 9.0} };
 		MultivariateNormalDistribution mnd = new MultivariateNormalDistribution(means, covariances);
-		int s = 10;
+		int s = 25;
 
 		double[][] R = new double[s][3];
 		double[] p = new double[s];
@@ -74,8 +74,8 @@ public class Main2 {
 		double delta = (maxc - minc)/n;
 		System.out.println("Delta=" + delta);
 		//Model3[] modela = new Model3[n];
-		int offset = 2475;
-		for(int i = (0+offset); i<n; i++) {
+		int offset = 11;
+		for(int i = (0+offset); i<40; i++) {
 			File file = new File("cost\\cost-risk" + i + ".txt");
 			FileWriter fw = new FileWriter(file);
 			BufferedWriter bw = new BufferedWriter(fw);
